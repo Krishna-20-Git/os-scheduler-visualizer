@@ -132,7 +132,7 @@ def priority_preemptive(processes_data, order):
     processes = copy.deepcopy(processes_data)
     time = 0
     log = []
-    ready_queue = [] # Min-heap: (priority, name, process_obj)
+    ready_queue = [] # Min-heap: (priority, arrival_tie_breaker, name, process_obj)
     remaining_burst = {p['name']: p['burst'] for p in processes}
     process_queue = sorted(processes, key=lambda x: x['arrival'])
     is_low_high = order == 'lowIsHigh'
@@ -288,6 +288,11 @@ def compare():
         results[name] = {'log': log, 'metrics': calculate_metrics(processes, log)}
 
     return jsonify(results)
+
+# New keep-alive endpoint
+@app.route('/api/ping')
+def ping():
+    return jsonify({"status": "awake"})
 
 if __name__ == '__main__':
     app.run(debug=True)
