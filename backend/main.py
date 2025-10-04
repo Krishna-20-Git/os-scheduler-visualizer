@@ -1,39 +1,44 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import heapq
+import copy
 
 app = Flask(__name__)
-# This line is updated to explicitly allow all websites to access your API.
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# --- SCHEDULING ALGORITHMS ---
+# --- SCHEDULING ALGORITHMS (REWRITTEN FOR ROBUSTNESS) ---
+
 def fcfs(processes_data):
-    processes = [p.copy() for p in processes_data]
-    processes.sort(key=lambda x: x['arrival'])
+    processes = copy.deepcopy(processes_data)
     time = 0
     log = []
+    ready_queue = []
+    process_queue = sorted(processes, key=lambda x: x['arrival'])
     
-    for p in processes:
-        if time < p['arrival']:
-            idle_time = p['arrival'] - time
-            for _ in range(idle_time):
-                log.append({'time': time, 'process': None, 'ready_queue': []})
+    while process_queue or ready_queue:
+        while process_queue and process_queue[0]['arrival'] <= time:
+            ready_queue.append(process_queue.pop(0))
+
+        if ready_queue:
+            current_process_obj = ready_queue.pop(0)
+            burst_time = current_process_obj['burst']
+            for _ in range(burst_time):
+                log.append({
+                    'time': time,
+                    'process': current_process_obj['name'],
+                    'ready_queue': [p['name'] for p in ready_queue]
+                })
                 time += 1
-        
-        rq = [proc['name'] for proc in processes if proc['arrival'] <= time and proc != p]
-        
-        for _ in range(p['burst']):
-            log.append({
-                'time': time,
-                'process': p['name'],
-                'ready_queue': [proc['name'] for proc in rq if proc != p['name']]
-            })
+                # Check for new arrivals mid-burst
+                while process_queue and process_queue[0]['arrival'] <= time:
+                    ready_queue.append(process_queue.pop(0))
+        else:
+            log.append({'time': time, 'process': None, 'ready_queue': []})
             time += 1
-            
     return log
 
 def sjf_non_preemptive(processes_data):
-    processes = [p.copy() for p in processes_data]
+    processes = copy.deepcopy(processes_data)
     time = 0
     log = []
     ready_queue = []
@@ -46,34 +51,26 @@ def sjf_non_preemptive(processes_data):
         if ready_queue:
             ready_queue.sort(key=lambda p: p['burst'])
             current_process_obj = ready_queue.pop(0)
-            current_process = current_process_obj['name']
-            
             burst_time = current_process_obj['burst']
-            for i in range(burst_time):
-                current_ready_queue = [p['name'] for p in ready_queue]
-                # Check for new arrivals mid-burst for accurate ready queue logging
-                temp_time = time + i
-                newly_arrived = [p for p in process_queue if p['arrival'] <= temp_time]
-                for p in newly_arrived:
-                    if p['name'] not in current_ready_queue:
-                         current_ready_queue.append(p['name'])
-
+            for _ in range(burst_time):
                 log.append({
-                    'time': time + i,
-                    'process': current_process,
-                    'ready_queue': current_ready_queue
+                    'time': time,
+                    'process': current_process_obj['name'],
+                    'ready_queue': [p['name'] for p in ready_queue]
                 })
-            time += burst_time
+                time += 1
+                while process_queue and process_queue[0]['arrival'] <= time:
+                    ready_queue.append(process_queue.pop(0))
         else:
             log.append({'time': time, 'process': None, 'ready_queue': []})
             time += 1
     return log
 
 def sjf_preemptive(processes_data):
-    processes = [p.copy() for p in processes_data]
+    processes = copy.deepcopy(processes_data)
     time = 0
     log = []
-    ready_queue = [] # This will be a min-heap
+    ready_queue = [] # Min-heap: (burst, name, process_obj)
     remaining_burst = {p['name']: p['burst'] for p in processes}
     process_queue = sorted(processes, key=lambda x: x['arrival'])
     
@@ -102,12 +99,11 @@ def sjf_preemptive(processes_data):
     return log
 
 def priority_non_preemptive(processes_data, order):
-    processes = [p.copy() for p in processes_data]
+    processes = copy.deepcopy(processes_data)
     time = 0
     log = []
     ready_queue = []
     process_queue = sorted(processes, key=lambda x: x['arrival'])
-    
     is_low_high = order == 'lowIsHigh'
 
     while process_queue or ready_queue:
@@ -117,32 +113,26 @@ def priority_non_preemptive(processes_data, order):
         if ready_queue:
             ready_queue.sort(key=lambda p: p['priority'], reverse=not is_low_high)
             current_process_obj = ready_queue.pop(0)
-            current_process = current_process_obj['name']
-            
             burst_time = current_process_obj['burst']
-            for i in range(burst_time):
-                current_ready_queue = [p['name'] for p in ready_queue]
-                temp_time = time + i
-                newly_arrived = [p for p in process_queue if p['arrival'] <= temp_time]
-                for p in newly_arrived:
-                    if p['name'] not in current_ready_queue:
-                         current_ready_queue.append(p['name'])
+            for _ in range(burst_time):
                 log.append({
-                    'time': time + i,
-                    'process': current_process,
-                    'ready_queue': current_ready_queue
+                    'time': time,
+                    'process': current_process_obj['name'],
+                    'ready_queue': [p['name'] for p in ready_queue]
                 })
-            time += burst_time
+                time += 1
+                while process_queue and process_queue[0]['arrival'] <= time:
+                    ready_queue.append(process_queue.pop(0))
         else:
             log.append({'time': time, 'process': None, 'ready_queue': []})
             time += 1
     return log
     
 def priority_preemptive(processes_data, order):
-    processes = [p.copy() for p in processes_data]
+    processes = copy.deepcopy(processes_data)
     time = 0
     log = []
-    ready_queue = [] # Min-heap
+    ready_queue = [] # Min-heap: (priority, name, process_obj)
     remaining_burst = {p['name']: p['burst'] for p in processes}
     process_queue = sorted(processes, key=lambda x: x['arrival'])
     is_low_high = order == 'lowIsHigh'
@@ -151,29 +141,29 @@ def priority_preemptive(processes_data, order):
         while process_queue and process_queue[0]['arrival'] <= time:
             p = process_queue.pop(0)
             priority_val = p['priority'] if is_low_high else -p['priority']
-            heapq.heappush(ready_queue, (priority_val, p['name'], p))
+            heapq.heappush(ready_queue, (priority_val, p['arrival'], p['name'], p)) # Add arrival time to break ties
 
         if ready_queue:
-            priority, name, proc = heapq.heappop(ready_queue)
+            priority, arrival_tie_breaker, name, proc = heapq.heappop(ready_queue)
             
             log.append({
                 'time': time,
                 'process': name,
-                'ready_queue': sorted([p[1] for p in ready_queue])
+                'ready_queue': sorted([p[2] for p in ready_queue])
             })
             
             remaining_burst[name] -= 1
             time += 1
 
             if remaining_burst[name] > 0:
-                heapq.heappush(ready_queue, (priority, name, proc))
+                heapq.heappush(ready_queue, (priority, arrival_tie_breaker, name, proc))
         else:
             log.append({'time': time, 'process': None, 'ready_queue': []})
             time += 1
     return log
 
 def round_robin(processes_data, quantum):
-    processes = [p.copy() for p in processes_data]
+    processes = copy.deepcopy(processes_data)
     time = 0
     log = []
     ready_queue = []
@@ -186,23 +176,21 @@ def round_robin(processes_data, quantum):
         
         if ready_queue:
             current_process_obj = ready_queue.pop(0)
-            current_process = current_process_obj['name']
-            
-            run_time = min(remaining_burst[current_process], quantum)
+            run_time = min(remaining_burst[current_process_obj['name']], quantum)
 
-            for i in range(run_time):
+            for _ in range(run_time):
                 log.append({
                     'time': time,
-                    'process': current_process,
+                    'process': current_process_obj['name'],
                     'ready_queue': [p['name'] for p in ready_queue]
                 })
                 time += 1
-                remaining_burst[current_process] -= 1
+                remaining_burst[current_process_obj['name']] -= 1
                 
                 while process_queue and process_queue[0]['arrival'] <= time:
                     ready_queue.append(process_queue.pop(0))
 
-            if remaining_burst[current_process] > 0:
+            if remaining_burst[current_process_obj['name']] > 0:
                 ready_queue.append(current_process_obj)
         else:
             log.append({'time': time, 'process': None, 'ready_queue': []})
