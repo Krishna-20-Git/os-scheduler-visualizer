@@ -112,7 +112,7 @@ const GlobalStyles = ({ theme }) => {
 };
 
 // --- DYNAMIC STYLES ---
-const getStyles = (theme) => {
+const getStyles = (theme, isMobile) => {
   const isDark = theme === "dark";
 
   const colors = {
@@ -157,6 +157,7 @@ const getStyles = (theme) => {
   return {
     container: {
       display: "flex",
+      flexDirection: isMobile ? "column" : "row",
       fontFamily:
         'Poppins, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       color: themeColors.textPrimary,
@@ -164,10 +165,11 @@ const getStyles = (theme) => {
       backgroundColor: themeColors.bg,
     },
     sidebar: {
-      width: "300px",
+      width: isMobile ? "100%" : "300px",
       padding: "20px",
       backgroundColor: themeColors.sidebarBg,
-      borderRight: `1px solid ${themeColors.border}`,
+      borderRight: isMobile ? "none" : `1px solid ${themeColors.border}`,
+      borderBottom: isMobile ? `1px solid ${themeColors.border}` : "none",
       display: "flex",
       flexDirection: "column",
       position: "relative",
@@ -215,7 +217,11 @@ const getStyles = (theme) => {
     },
     buttonMuted: { backgroundColor: themeColors.buttonMutedBg },
     buttonCompare: { backgroundColor: themeColors.buttonCompareBg },
-    processList: { flex: 1, overflowY: "auto" },
+    processList: {
+      flex: 1,
+      overflowY: "auto",
+      maxHeight: isMobile ? "150px" : "none",
+    },
     processItem: {
       display: "flex",
       justifyContent: "space-between",
@@ -275,9 +281,10 @@ const getStyles = (theme) => {
     },
     animationContainer: {
       display: "flex",
+      flexDirection: isMobile ? "column" : "row",
       gap: "20px",
       marginTop: "20px",
-      height: "100px",
+      height: isMobile ? "auto" : "100px",
     },
     cpuBox: {
       flex: 1,
@@ -287,7 +294,7 @@ const getStyles = (theme) => {
       textAlign: "center",
     },
     readyQueueBox: {
-      flex: 2,
+      flex: 1,
       border: `2px dashed ${themeColors.textSecondary}`,
       borderRadius: "8px",
       padding: "10px",
@@ -337,10 +344,11 @@ const getStyles = (theme) => {
       marginTop: "10px",
       borderTop: `1px solid ${themeColors.border}`,
       paddingTop: "10px",
+      flexWrap: "wrap",
     },
     compareContainer: {
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
+      gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
       gap: "20px",
     },
     compareCard: {
@@ -384,9 +392,22 @@ const PROCESS_COLORS = [
   "#f97316",
   "#d946ef",
 ];
-// For local development, the backend runs on port 5000
-// For deployment, the backend URL will be provided by an environment variable
-const API_BASE_URL = "http://127.0.0.1:5000";
+const API_BASE_URL =
+  (typeof process !== "undefined" &&
+    process.env &&
+    process.env.REACT_APP_API_URL) ||
+  "http://127.0.0.1:5000";
+
+const useMediaQuery = (query) => {
+  const [matches, setMatches] = useState(window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const listener = () => setMatches(media.matches);
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }, [query]);
+  return matches;
+};
 
 const StaticGanttChart = ({ log, styles }) => {
   const getProcessColor = (name) =>
@@ -443,7 +464,7 @@ const StaticGanttChart = ({ log, styles }) => {
   );
 };
 
-const LandingPage = ({ onEnter, styles }) => {
+const LandingPage = ({ onEnter, styles, isMobile }) => {
   const containerRef = useRef(null);
 
   const landingStyles = {
@@ -460,7 +481,7 @@ const LandingPage = ({ onEnter, styles }) => {
 
   const titleBaseStyle = {
     ...styles.h2,
-    fontSize: "4rem",
+    fontSize: isMobile ? "2.5rem" : "4rem",
     fontWeight: "bold",
     lineHeight: "1.2",
     color: "#4b5563",
@@ -531,8 +552,8 @@ const LandingPage = ({ onEnter, styles }) => {
   );
 };
 
-const Scheduler = ({ theme, toggleTheme, onBack }) => {
-  const styles = getStyles(theme);
+const Scheduler = ({ theme, toggleTheme, onBack, isMobile }) => {
+  const styles = getStyles(theme, isMobile);
   const [processes, setProcesses] = useState([]);
   const [newProcess, setNewProcess] = useState({
     name: "",
@@ -1016,7 +1037,8 @@ const Scheduler = ({ theme, toggleTheme, onBack }) => {
 function App() {
   const [theme, setTheme] = useState("light");
   const [showScheduler, setShowScheduler] = useState(false);
-  const styles = getStyles(theme);
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const styles = getStyles(theme, isMobile);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("schedulerTheme");
@@ -1060,7 +1082,12 @@ function App() {
           left: 0,
         }}
       >
-        <LandingPage onEnter={handleEnter} styles={styles} theme={theme} />
+        <LandingPage
+          onEnter={handleEnter}
+          styles={styles}
+          theme={theme}
+          isMobile={isMobile}
+        />
       </div>
       <div
         className={`app-container ${
@@ -1080,6 +1107,7 @@ function App() {
             theme={theme}
             toggleTheme={toggleTheme}
             onBack={handleBack}
+            isMobile={isMobile}
           />
         )}
       </div>
