@@ -950,7 +950,9 @@ const Scheduler = ({ theme, toggleTheme, onBack, isMobile }) => {
                   )}
                 </div>
                 <div style={styles.metricsContainer} className="card">
-                  <h3 style={styles.h3}>Final Performance Metrics</h3>
+                  <h3 style={{ ...styles.h3, textAlign: "center" }}>
+                    Final Performance Metrics
+                  </h3>
                   <p>
                     <strong>Average Waiting Time:</strong>{" "}
                     {singleResult.metrics.avg_waiting_time} units
