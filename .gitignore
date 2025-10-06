@@ -1,0 +1,9 @@
+/node_modules
+/build
+
+.DS_Store
+.vscode/
+*.swp
+
+.env
+.env.local
